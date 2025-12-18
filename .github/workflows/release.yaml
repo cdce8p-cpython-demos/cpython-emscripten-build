@@ -1,0 +1,128 @@
+name: Create release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref
+        required: true
+
+env:
+  EMSCRIPTEN_SDK_PATH: "/opt/emsdk"
+  PYTHON_MAJOR_MINOR: "3.15"
+  TARGET_TRIPLE: "wasm32-emscripten"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build CPython using the Emscripten SDK
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.info.outputs.commit }}
+      py_ver: ${{ steps.copy-files.outputs.py_ver }}
+      archive_name: ${{ steps.archive.outputs.archive_name }}
+    steps:
+      - name: Install build dependencies
+        # https://devguide.python.org/getting-started/setup-building/#linux
+        # Removed: gdb lcov libncurses5-dev libreadline6-dev tk-dev
+        # Replaced uuid-dev with util-linux
+        run: |
+          sudo apt-get install build-essential pkg-config \
+          libbz2-dev libffi-dev libgdbm-dev libgdbm-compat-dev \
+          liblzma-dev libsqlite3-dev libssl-dev \
+          lzma lzma-dev util-linux zlib1g-dev
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+      - name: Checkout the CPython at ${{ inputs.ref }}
+        id: checkout-cpython
+        uses: actions/checkout@v6
+        with:
+          repository: "${{ github.actor }}/cpython"
+          ref: "${{ inputs.ref }}"
+      - name: Info
+        id: info
+        run: |
+          commit=$(echo "${{ steps.checkout-cpython.outputs.commit }}" | cut -c1-8)
+          echo "commit: ${commit}"
+          echo "commit=${commit}" >> $GITHUB_OUTPUT
+      - name: Install Emscripten SDK
+        run: |
+          mkdir ${{ env.EMSCRIPTEN_SDK_PATH }}
+          git clone https://github.com/emscripten-core/emsdk --depth 1 ${{ env.EMSCRIPTEN_SDK_PATH }}
+          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk install latest
+          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk activate latest
+      - name: Cache build
+        id: cache-build
+        uses: actions/cache/restore@v5
+        with: &cache-info
+          path: cross-build
+          key: build-${{ inputs.ref }}-${{ steps.info.outputs.commit }}
+      - name: Build
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        # https://devguide.python.org/contrib/workflows/compile/#emscripten
+        run: |
+          source ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk_env.sh
+          python3 Tools/wasm/emscripten build
+      - name: Restore build cache
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with: *cache-info
+      - name: Copy files
+        id: copy-files
+        run: |
+          py_ver=`cross-build/build/python -c "import sysconfig as s; print(s.get_python_version())"`
+          echo "py_ver: ${py_ver}"
+          echo "py_ver=${py_ver}" >> $GITHUB_OUTPUT
+
+          mkdir output
+          prefix=cross-build/${{ env.TARGET_TRIPLE }}/build/python
+          cp "${prefix}/python.wasm" output
+          cp "${prefix}/python.mjs" output
+          cp "${prefix}/platform" output
+          cp "${prefix}/python${py_ver}.zip" output
+          ls -l output
+      - name: Create zip archive
+        id: archive
+        run: |
+          commit=${{ steps.info.outputs.commit }}
+          py_ver=${{ steps.copy-files.outputs.py_ver }}
+
+          archive_name=python-${py_ver}-emscripten-${{ inputs.ref }}-${commit}.zip
+          echo "archive_name: ${archive_name}"
+          echo "archive_name=${archive_name}" >> $GITHUB_OUTPUT
+
+          cd output
+          zip "${archive_name}" \
+            python.wasm \
+            python.mjs \
+            platform \
+            python${py_ver}.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: archive
+          path: output/${{ steps.archive.outputs.archive_name }}
+
+  release:
+    name: Create release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: archive
+      - name: Create release
+        run: |
+          gh release create v${{ needs.build.outputs.py_ver }} \
+            --title "CPython ${{ needs.build.outputs.py_ver }} w/ Emscripten for ${{ inputs.ref }} (${{ needs.build.outputs.commit }})" \
+            --repo "${{ github.repository }}"
+          gh release upload v${{ needs.build.outputs.py_ver }} \
+            ${{ needs.build.outputs.archive_name }} \
+            --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
