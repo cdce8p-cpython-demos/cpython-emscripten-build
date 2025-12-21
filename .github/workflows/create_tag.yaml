@@ -1,0 +1,66 @@
+name: Create tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch name
+        required: true
+        type: string
+
+env:
+  CPYTHON_REPO: "cdce8p/cpython"
+
+jobs:
+  create_tag:
+    name: Create tag
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: "${{ env.CPYTHON_REPO }}"
+          ref: "${{ inputs.branch }}"
+          path: cpython
+      - name: Get cpython commit
+        id: cpython-version
+        run: |
+          if [[ $? == 1 ]]; then
+            echo "Branch ${{ inputs.branch }} doesn't exist"
+            exit 1
+          fi
+          sha=$(git -C cpython rev-parse HEAD)
+          echo "sha: $sha"
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          tag="${{ inputs.branch }}_$sha"
+          echo "tag: $tag"
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+      - name: Check existing tags
+        id: existing-tags
+        continue-on-error: true
+        run: |
+          tag=${{ steps.cpython-version.outputs.tag }}
+          echo "tag: $tag"
+          res=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/tags/$tag)
+          echo "Found at $(echo $res | jq -r '.html_url')"
+          echo "found=true" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v6
+        if: steps.existing-tags.outputs.found != 'true'
+        with:
+          token: ${{ secrets.PUSH_TOKEN }}
+      - name: Create Tag
+        if: steps.existing-tags.outputs.found != 'true'
+        run: |
+          tag=${{ steps.cpython-version.outputs.tag }}
+
+          git config user.email "nobody"
+          git config user.name "custom cpython emscripten builds autopush"
+
+          echo "$tag" >> cpython_commit
+          git add cpython_commit
+          git commit -m "Build CPython emscripten assets"
+          git tag $tag
+          git push --tags
