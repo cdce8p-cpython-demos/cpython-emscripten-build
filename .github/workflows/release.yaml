@@ -30,9 +30,12 @@ jobs:
       - name: Info
         id: info
         run: |
+          emscripten_sdk=${{ vars.EMSCRIPTEN_SDK || 'latest' }}
           branch=$(cat cpython_commit | pyp 'x.rpartition("_")[0]')
           sha=$(cat cpython_commit | pyp 'x.rpartition("_")[2]')
           commit=$(echo "$sha" | cut -c1-8)
+          echo "emscripten_sdk: ${emscripten_sdk}"
+          echo "emscripten_sdk=${emscripten_sdk}" >> $GITHUB_OUTPUT
           echo "branch: ${branch}"
           echo "branch=${branch}" >> $GITHUB_OUTPUT
           echo "sha: ${sha}"
@@ -62,13 +65,13 @@ jobs:
           libbz2-dev libffi-dev libgdbm-dev libgdbm-compat-dev \
           liblzma-dev libsqlite3-dev libssl-dev \
           lzma lzma-dev util-linux zlib1g-dev
-      - name: Install Emscripten SDK
+      - name: Install Emscripten SDK (${{ steps.info.outputs.emscripten_sdk }})
         if: steps.cache-build.outputs.cache-hit != 'true'
         run: |
           mkdir ${{ env.EMSCRIPTEN_SDK_PATH }}
           git clone https://github.com/emscripten-core/emsdk --depth 1 ${{ env.EMSCRIPTEN_SDK_PATH }}
-          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk install latest
-          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk activate latest
+          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk install '${{ steps.info.outputs.emscripten_sdk }}'
+          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk activate '${{ steps.info.outputs.emscripten_sdk }}'
       - name: Build
         if: steps.cache-build.outputs.cache-hit != 'true'
         # https://devguide.python.org/contrib/workflows/compile/#emscripten
