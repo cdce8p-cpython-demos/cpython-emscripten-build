@@ -77,8 +77,7 @@ jobs:
         # https://devguide.python.org/contrib/workflows/compile/#emscripten
         run: |
           source ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk_env.sh
-          python3 Tools/wasm/emscripten build build
-          python3 Tools/wasm/emscripten build host
+          python3 Platforms/emscripten build
 
       - name: Restore build cache
         if: steps.cache-build.outputs.cache-hit != 'true'
