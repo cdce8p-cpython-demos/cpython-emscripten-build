@@ -8,7 +8,6 @@ on:
 env:
   CPYTHON_REPO: "cdce8p/cpython"
   EMSCRIPTEN_SDK_PATH: "/opt/emsdk"
-  PYTHON_MAJOR_MINOR: "3.15"
   TARGET_TRIPLE: "wasm32-emscripten"
 
 jobs:
@@ -30,12 +29,9 @@ jobs:
       - name: Info
         id: info
         run: |
-          emscripten_sdk=${{ vars.EMSCRIPTEN_SDK || 'latest' }}
           branch=$(cat cpython_commit | pyp 'x.rpartition("_")[0]')
           sha=$(cat cpython_commit | pyp 'x.rpartition("_")[2]')
           commit=$(echo "$sha" | cut -c1-8)
-          echo "emscripten_sdk: ${emscripten_sdk}"
-          echo "emscripten_sdk=${emscripten_sdk}" >> $GITHUB_OUTPUT
           echo "branch: ${branch}"
           echo "branch=${branch}" >> $GITHUB_OUTPUT
           echo "sha: ${sha}"
@@ -48,12 +44,29 @@ jobs:
         with:
           repository: "${{ env.CPYTHON_REPO }}"
           ref: "${{ steps.info.outputs.sha }}"
-      - name: Cache build
+      - name: Read emscripten-sdk version
+        id: emscripten-info
+        shell: python
+        run: |
+          import os
+          import tomllib
+          from pathlib import Path
+          config_path = Path("Platforms/emscripten/config.toml")
+          config = tomllib.loads(config_path.read_text())
+          emscripten_version = config["emscripten-version"]
+          node_version = config["node-version"]
+          print(f"emscripten_version: {emscripten_version}")
+          print(f"node_version: {node_version}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fp:
+            fp.write(f"emscripten_version={emscripten_version}\n")
+            fp.write(f"node_version={node_version}\n")
+      - name: Restore build cache
         id: cache-build
         uses: actions/cache/restore@v5
         with: &cache-info
           path: cross-build
-          key: build-${{ steps.info.outputs.branch }}-${{ steps.info.outputs.commit }}
+          key: build-${{ steps.info.outputs.branch }}-${{ steps.info.outputs.commit }}-v${{
+              steps.emscripten-info.outputs.emscripten_version }}
 
       - name: Install build dependencies
         if: steps.cache-build.outputs.cache-hit != 'true'
@@ -65,13 +78,13 @@ jobs:
           libbz2-dev libffi-dev libgdbm-dev libgdbm-compat-dev \
           liblzma-dev libsqlite3-dev libssl-dev \
           lzma lzma-dev util-linux zlib1g-dev
-      - name: Install Emscripten SDK (${{ steps.info.outputs.emscripten_sdk }})
+      - name: Install Emscripten SDK ${{ steps.emscripten-info.outputs.emscripten_version }}
         if: steps.cache-build.outputs.cache-hit != 'true'
         run: |
           mkdir ${{ env.EMSCRIPTEN_SDK_PATH }}
           git clone https://github.com/emscripten-core/emsdk --depth 1 ${{ env.EMSCRIPTEN_SDK_PATH }}
-          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk install '${{ steps.info.outputs.emscripten_sdk }}'
-          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk activate '${{ steps.info.outputs.emscripten_sdk }}'
+          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk install '${{ steps.emscripten-info.outputs.emscripten_version }}'
+          ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk activate '${{ steps.emscripten-info.outputs.emscripten_version }}'
       - name: Build
         if: steps.cache-build.outputs.cache-hit != 'true'
         # https://devguide.python.org/contrib/workflows/compile/#emscripten
@@ -79,7 +92,7 @@ jobs:
           source ${{ env.EMSCRIPTEN_SDK_PATH }}/emsdk_env.sh
           python3 Platforms/emscripten build
 
-      - name: Restore build cache
+      - name: Save build cache
         if: steps.cache-build.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with: *cache-info
