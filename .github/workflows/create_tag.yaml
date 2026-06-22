@@ -18,7 +18,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: "${{ env.CPYTHON_REPO }}"
           ref: "${{ inputs.branch }}"
@@ -47,7 +47,7 @@ jobs:
             /repos/${{ github.repository }}/releases/tags/$tag)
           echo "Found at $(echo $res | jq -r '.html_url')"
           echo "found=true" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: steps.existing-tags.outputs.found != 'true'
         with:
           token: ${{ secrets.PUSH_TOKEN }}

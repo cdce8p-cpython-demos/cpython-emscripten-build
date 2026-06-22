@@ -20,7 +20,7 @@ jobs:
       py_ver: ${{ steps.copy-files.outputs.py_ver }}
       archive_name: ${{ steps.archive.outputs.archive_name }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install Python
         uses: actions/setup-python@v6
         with:
@@ -40,7 +40,7 @@ jobs:
           echo "commit=${commit}" >> $GITHUB_OUTPUT
       - name: Checkout the CPython at ${{ steps.info.outputs.branch }} (${{ steps.info.outputs.commit }})
         id: checkout-cpython
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: "${{ env.CPYTHON_REPO }}"
           ref: "${{ steps.info.outputs.sha }}"
@@ -140,7 +140,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
