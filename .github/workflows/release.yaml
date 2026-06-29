@@ -62,7 +62,7 @@ jobs:
             fp.write(f"node_version={node_version}\n")
       - name: Restore build cache
         id: cache-build
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with: &cache-info
           path: cross-build
           key: build-${{ steps.info.outputs.branch }}-${{ steps.info.outputs.commit }}-v${{
@@ -94,7 +94,7 @@ jobs:
 
       - name: Save build cache
         if: steps.cache-build.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with: *cache-info
       - name: Copy files
         id: copy-files
