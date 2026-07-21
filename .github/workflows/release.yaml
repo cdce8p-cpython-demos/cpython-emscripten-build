@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.x"
-          pip-install: pypyp
+      - run: pip install pypyp
       - name: Info
         id: info
         run: |
