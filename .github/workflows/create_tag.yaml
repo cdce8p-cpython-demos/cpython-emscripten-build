@@ -8,9 +8,6 @@ on:
         required: true
         type: string
 
-env:
-  CPYTHON_REPO: "cdce8p/cpython"
-
 jobs:
   create_tag:
     name: Create tag
@@ -20,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          repository: "${{ env.CPYTHON_REPO }}"
+          repository: "${{ vars.CPYTHON_REPO }}"
           ref: "${{ inputs.branch }}"
           path: cpython
       - name: Get cpython commit

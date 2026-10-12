@@ -6,7 +6,6 @@ on:
       - '*'
 
 env:
-  CPYTHON_REPO: "cdce8p/cpython"
   EMSCRIPTEN_SDK_PATH: "/opt/emsdk"
   TARGET_TRIPLE: "wasm32-emscripten"
 
@@ -42,7 +41,7 @@ jobs:
         id: checkout-cpython
         uses: actions/checkout@v7
         with:
-          repository: "${{ env.CPYTHON_REPO }}"
+          repository: "${{ vars.CPYTHON_REPO }}"
           ref: "${{ steps.info.outputs.sha }}"
       - name: Read emscripten-sdk version
         id: emscripten-info
