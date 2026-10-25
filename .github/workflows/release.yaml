@@ -73,6 +73,7 @@ jobs:
         # Removed: gdb lcov libncurses5-dev libreadline6-dev tk-dev
         # Replaced uuid-dev with util-linux
         run: |
+          sudo apt-get update
           sudo apt-get install build-essential pkg-config \
           libbz2-dev libffi-dev libgdbm-dev libgdbm-compat-dev \
           liblzma-dev libsqlite3-dev libssl-dev \
