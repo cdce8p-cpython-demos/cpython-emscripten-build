@@ -69,15 +69,16 @@ jobs:
 
       - name: Install build dependencies
         if: steps.cache-build.outputs.cache-hit != 'true'
-        # https://devguide.python.org/getting-started/setup-building/#linux
+        # https://devguide.python.org/getting-started/setup-building/#install-dependencies
         # Removed: gdb lcov libncurses5-dev libreadline6-dev tk-dev
         # Replaced uuid-dev with util-linux
+        # Replaced lzma-dev with liblzma-dev
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config \
           libbz2-dev libffi-dev libgdbm-dev libgdbm-compat-dev \
           liblzma-dev libsqlite3-dev libssl-dev \
-          lzma lzma-dev util-linux zlib1g-dev
+          lzma liblzma-dev util-linux zlib1g-dev
       - name: Install Emscripten SDK ${{ steps.emscripten-info.outputs.emscripten_version }}
         if: steps.cache-build.outputs.cache-hit != 'true'
         run: |
